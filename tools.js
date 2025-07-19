@@ -1,2 +1,1 @@
-export * as symbol from './tools/symbol.js';
-
+export * as symbol from "./tools/symbol.js";
