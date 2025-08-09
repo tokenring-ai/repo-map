@@ -9,10 +9,12 @@
 		"tree-sitter": "*",
 		"tree-sitter-cpp": "^0.23.1",
 		"tree-sitter-javascript": "*",
-		"tree-sitter-python": "^0.23.6"
+		"tree-sitter-python": "^0.23.6",
+		"zod": "^3.23.8"
 	},
 	"exports": {
-		".": "./index.js"
+		".": "./index.ts",
+		"./*": "./*.ts"
 	},
 	"license": "MIT",
 	"scripts": {
