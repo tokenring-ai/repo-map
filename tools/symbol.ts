@@ -1,8 +1,4 @@
 import path from "path";
-import Parser from "tree-sitter";
-import JS from "tree-sitter-javascript";
-import CPP from "tree-sitter-cpp";
-import Python from "tree-sitter-python";
 import { ChatService } from "@token-ring/chat";
 import { FileSystemService } from "@token-ring/filesystem";
 import { z } from "zod";
@@ -27,7 +23,7 @@ export async function execute(
   { path: filePath, symbolName, symbolType, content, parentClass }: ExecuteParams,
   registry: Registry
 ): Promise<string> {
-  if (!filePath || !symbolName || !symbolType || !content) {
+  if (!filePath || !symbolName || !symbolType || content === undefined) {
       return `Error: Missing required parameters. Please provide path, symbolName, symbolType, and content.`;
   }
 
@@ -49,17 +45,64 @@ export async function execute(
       return `Error: File ${filePath} not found. Please create the file first.`;
     }
 
-    const lang = loadLanguage(path.extname(filePath));
-    if (!lang) {
+    const ext = path.extname(filePath);
+    const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
+    if (!supported.includes(ext)) {
       return `Error: Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`;
     }
 
-    const originalCode: string = await fileSystem.getFile(filePath);
-    const parser: any = new (Parser as any)();
+    const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
+
+    // Fast path: JS/TS top-level function manipulation without tree-sitter
+    if ((!parentClass) && symbolType === "function" && [".js", ".jsx", ".ts", ".tsx"].includes(ext)) {
+      let newCode: string | undefined;
+      const range = findTopLevelFunctionRange(originalCode, symbolName);
+      if (range) {
+        if (content === "") {
+          newCode = originalCode.slice(0, range.start) + originalCode.slice(range.end);
+          // Normalize potential excessive blank lines created by deletion
+          newCode = newCode.replace(/\n{3,}/g, "\n\n");
+        } else {
+          newCode = originalCode.slice(0, range.start) + content + originalCode.slice(range.end);
+        }
+      } else {
+        if ((originalCode ?? "").trim() === "") {
+          newCode = content.trim();
+        } else {
+          newCode = `${originalCode.trim()}\n${content.trim()}`;
+        }
+      }
+
+      const success = await fileSystem.writeFile(filePath, newCode);
+      if (success) {
+        fileSystem.setDirty(true);
+        chatService.infoLine(
+          `[RepoMap] Successfully modified ${symbolDescription} in ${filePath}`
+        );
+        return `${symbolDescription} successfully modified`;
+      } else {
+        return `Error: Failed to write changes to ${filePath}`;
+      }
+    }
+
+    // Tree-sitter path for other languages or nested cases
+    let newCode: string | undefined;
+
+    let ParserMod: any = null;
+    try {
+      ParserMod = await import("tree-sitter");
+    } catch {}
+    if (!ParserMod) {
+      return `Error: Failed to load parser for ${filePath}`;
+    }
+    const parser: any = new (ParserMod as any).default();
+
+    const lang = await loadLanguage(ext);
+    if (!lang) {
+      return `Error: Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`;
+    }
     parser.setLanguage(lang);
     const tree = parser.parse(originalCode);
-
-    let newCode: string | undefined;
 
     if (parentClass) {
       const classSymbol = findSymbol(tree, parentClass, "class");
@@ -87,9 +130,17 @@ export async function execute(
       const existingSymbol = findSymbol(tree, symbolName, symbolType);
 
       if (existingSymbol) {
-        newCode = replaceSymbol(originalCode, existingSymbol, content);
+        if (content === "") {
+          newCode = deleteSymbol(originalCode, existingSymbol);
+        } else {
+          newCode = replaceSymbol(originalCode, existingSymbol, content);
+        }
       } else {
-        newCode = `${originalCode.trim()}\n${content.trim()}`;
+        if ((originalCode ?? "").trim() === "") {
+          newCode = content.trim();
+        } else {
+          newCode = `${originalCode.trim()}\n${content.trim()}`;
+        }
       }
     }
 
@@ -114,22 +165,22 @@ export async function execute(
   }
 }
 
-function loadLanguage(ext: string): any | null {
+async function loadLanguage(ext: string): Promise<any | null> {
   switch (ext) {
     case ".js":
     case ".jsx":
     case ".ts":
     case ".tsx":
-      return JS as any;
+      try { return (await import("tree-sitter-javascript")).default as any; } catch { return null; }
     case ".py":
-      return Python as any;
+      try { return (await import("tree-sitter-python")).default as any; } catch { return null; }
     case ".h":
     case ".c":
     case ".hxx":
     case ".cxx":
     case ".hpp":
     case ".cpp":
-      return CPP as any;
+      try { return (await import("tree-sitter-cpp")).default as any; } catch { return null; }
     default:
       return null;
   }
@@ -382,3 +433,69 @@ export const parameters = z.object({
     )
     .optional(),
 });
+
+
+function deleteSymbol(originalCode: string, existingSymbol: any) {
+  const lines = originalCode.split("\n");
+  const startLine = existingSymbol.startPosition.row;
+  const endLine = existingSymbol.endPosition.row;
+  const startColumn = existingSymbol.startPosition.column;
+  const endColumn = existingSymbol.endPosition.column;
+
+  // If the symbol starts at column 0, assume it spans full lines and remove those lines.
+  if (startColumn === 0) {
+    lines.splice(startLine, endLine - startLine + 1);
+
+    // Clean up potential extra blank lines at the splice point
+    if (startLine > 0 && startLine < lines.length) {
+      if (lines[startLine].trim() === "" && lines[startLine - 1].trim() === "") {
+        lines.splice(startLine, 1);
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  // Fallback: replace symbol text with empty string and normalize excessive blank lines
+  const replaced = replaceSymbol(originalCode, existingSymbol, "");
+  return replaced.replace(/\n{3,}/g, "\n\n");
+}
+
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findTopLevelFunctionRange(code: string, name: string): { start: number; end: number } | null {
+  const n = escapeRegExp(name);
+  const pattern = new RegExp(`(^|\\n)\\s*function\\s+${n}\\s*\\(`);
+  const match = pattern.exec(code);
+  if (!match) return null;
+  // Start at the beginning of the matched "function" keyword
+  let start = match.index + (match[1] ? match[1].length : 0);
+
+  // Find the opening brace following the function signature
+  // Move to first '{'
+  const openParen = code.indexOf("(", start);
+  if (openParen === -1) return null;
+  const closeParen = code.indexOf(")", openParen + 1);
+  if (closeParen === -1) return null;
+  const openBrace = code.indexOf("{", closeParen + 1);
+  if (openBrace === -1) return null;
+
+  let i = openBrace;
+  let depth = 0;
+  for (; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        // Include the closing brace
+        const end = i + 1;
+        return { start, end };
+      }
+    }
+  }
+  return null;
+}

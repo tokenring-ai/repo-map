@@ -19,7 +19,8 @@
 	"license": "MIT",
 	"scripts": {
 		"lint": "eslint ",
-		"eslint": "eslint --fix ./"
+		"eslint": "eslint --fix ./",
+		"test": "vitest run"
 	},
 	"type": "module"
 }
