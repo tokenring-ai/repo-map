@@ -1,7 +1,7 @@
 import path from "path";
-import { ChatService } from "@token-ring/chat";
-import { FileSystemService } from "@token-ring/filesystem";
-import { z } from "zod";
+import {ChatService} from "@token-ring/chat";
+import {FileSystemService} from "@token-ring/filesystem";
+import {z} from "zod";
 import {Registry} from "@token-ring/registry";
 
 export interface ExecuteParams {

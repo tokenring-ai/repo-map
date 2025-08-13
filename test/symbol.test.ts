@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execute as executeSymbol } from "./symbol.ts";
-import { ServiceRegistry } from "@token-ring/registry";
-import { FileSystemService } from "@token-ring/filesystem";
-import { ChatService } from "@token-ring/chat";
+import {beforeEach, describe, expect, it, vi} from "vitest";
+import {execute as executeSymbol} from "./symbol.ts";
+import {ServiceRegistry} from "@token-ring/registry";
+import {FileSystemService} from "@token-ring/filesystem";
+import {ChatService} from "@token-ring/chat";
 
 class MockFileSystemService extends FileSystemService {
   files = new Map<string, string>();

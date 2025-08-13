@@ -4,7 +4,7 @@ import Parser from "tree-sitter";
 import JS from "tree-sitter-javascript";
 import CPP from "tree-sitter-cpp";
 import Python from "tree-sitter-python";
-import { FileSystemService } from "@token-ring/filesystem";
+import {FileSystemService} from "@token-ring/filesystem";
 import RepoMapResource from "./RepoMapResource.ts";
 
 export type Memory = { role: string; content: string };
