@@ -1,13 +1,25 @@
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "module": "ESNext",
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "verbatimModuleSyntax": true,
-    "strict": false,
-    "isolatedModules": false
-  },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+ "compilerOptions": {
+  "target": "ES2022",
+  "module": "NodeNext",
+  "moduleResolution": "NodeNext",
+  "resolveJsonModule": true,
+  "esModuleInterop": true,
+  "skipLibCheck": true,
+  "strict": true,
+  "allowJs": true,
+  "checkJs": true,
+  "allowImportingTsExtensions": true,
+  "types": ["node", "vitest"],
+  "outDir": "dist-ts",
+  "rootDir": "."
+ },
+ "include": [
+  "**/*.ts"
+ ],
+ "exclude": [
+  "node_modules",
+  "dist-ts",
+  "**/vitest.config.*"
+ ]
 }

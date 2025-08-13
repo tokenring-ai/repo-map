@@ -6,11 +6,12 @@ import Python from "tree-sitter-python";
 import { ChatService } from "@token-ring/chat";
 import { FileSystemService } from "@token-ring/filesystem";
 import { z } from "zod";
+import {Registry} from "@token-ring/registry";
 
 export interface ExecuteParams {
-  path: string;
-  symbolName: string;
-  symbolType:
+  path?: string;
+  symbolName?: string;
+  symbolType?:
     | "function"
     | "class"
     | "variable"
@@ -18,14 +19,19 @@ export interface ExecuteParams {
     | "export"
     | "constructor"
     | "property";
-  content: string;
+  content?: string;
   parentClass?: string;
 }
 
 export async function execute(
   { path: filePath, symbolName, symbolType, content, parentClass }: ExecuteParams,
-  registry: any
+  registry: Registry
 ): Promise<string> {
+  if (!filePath || !symbolName || !symbolType || !content) {
+      return `Error: Missing required parameters. Please provide path, symbolName, symbolType, and content.`;
+  }
+
+
   const chatService = registry.requireFirstServiceByType(ChatService);
   const fileSystem = registry.requireFirstServiceByType(FileSystemService);
 
@@ -35,6 +41,7 @@ export async function execute(
   chatService.infoLine(
     `[RepoMap] Modifying ${symbolDescription} in ${filePath}`
   );
+
 
   try {
     const fileExists = await fileSystem.exists(filePath);

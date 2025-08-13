@@ -1,9 +1,10 @@
 import ChatService from "@token-ring/chat/ChatService";
 import RepoMapService from "../RepoMapService.ts";
+import {Registry} from "@token-ring/registry";
 
 export const description = "/repo-map - Show the repository map.";
 
-export async function execute(_remainder: string, registry: any) {
+export async function execute(_remainder: string, registry: Registry) {
   const chatService = registry.requireFirstServiceByType(ChatService);
   const repoMapServiceInstance = registry.requireFirstServiceByType(RepoMapService);
 

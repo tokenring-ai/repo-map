@@ -1,4 +1,4 @@
-import { Service } from "@token-ring/registry";
+import {Registry, Service} from "@token-ring/registry";
 import path from "path";
 import Parser from "tree-sitter";
 import JS from "tree-sitter-javascript";
@@ -14,7 +14,7 @@ export default class RepoMapService extends Service {
    * Asynchronously yields memories from a repo map
    * @param {any} registry - The registry object containing available services
    */
-  async *getMemories(registry: any): AsyncGenerator<Memory> {
+  async *getMemories(registry: Registry): AsyncGenerator<Memory> {
     const fileSystem = registry.requireFirstServiceByType(FileSystemService);
 
     const files = new Set<string>();

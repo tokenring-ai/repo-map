@@ -45,7 +45,7 @@ class MockChatService extends ChatService {
 }
 
 describe("@token-ring/repo-map tools/symbol.ts", () => {
-  let registry: any;
+  let registry: Registry;
   let mockFileSystemService: MockFileSystemService;
   let mockChatService: MockChatService;
 
