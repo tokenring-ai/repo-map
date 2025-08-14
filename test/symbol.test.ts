@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {execute as executeSymbol} from "./symbol.ts";
-import {ServiceRegistry} from "@token-ring/registry";
+import {Registry, ServiceRegistry} from "@token-ring/registry";
 import {FileSystemService} from "@token-ring/filesystem";
 import {ChatService} from "@token-ring/chat";
 
@@ -50,12 +50,26 @@ describe("@token-ring/repo-map tools/symbol.ts", () => {
   let mockChatService: MockChatService;
 
   beforeEach(() => {
-    registry = new ServiceRegistry();
+    registry = new Registry();
     mockFileSystemService = new MockFileSystemService();
-    mockChatService = new MockChatService();
+    mockChatService = new MockChatService({
+        personas: {
+          code: {
+              instructions:
+                  "You are an expert developer assistant in an interactive chat, with access to a variety of tools to safely update the users existing codebase and execute tasks the user has requested. " +
+                  "When the user tells you to do something, you should assume that the user is asking you to use the available tools to update their codebase. " +
+                  "You should prefer using tools to implement code changes, even large code changes. " +
+                  "When making code changes, give short and concise responses summarizing the code changes",
+              model: "kimi-k2-instruct",
+              temperature: 0.2,
+              top_p: 0.1,
+          },
+        },
+        persona: 'code'
+    });
 
-    registry.registerService(mockFileSystemService);
-    registry.registerService(mockChatService);
+    registry.services.addServices(mockFileSystemService);
+    registry.services.addServices(mockChatService);
     vi.clearAllMocks();
   });
 
