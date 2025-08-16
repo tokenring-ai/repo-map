@@ -4,6 +4,8 @@ import {Registry} from "@token-ring/registry";
 import path from "path";
 import {z} from "zod";
 
+export const name = "repo-map/symbol";
+
 export interface ExecuteParams {
   path?: string;
   symbolName?: string;
@@ -22,11 +24,10 @@ export interface ExecuteParams {
 export async function execute(
   {path: filePath, symbolName, symbolType, content, parentClass}: ExecuteParams,
   registry: Registry
-): Promise<string | { error: string; }> {
+): Promise<string> {
   if (!filePath || !symbolName || !symbolType || content === undefined) {
-    return {error: "Missing required parameters. Please provide path, symbolName, symbolType, and content."};
+    throw new Error(`[${name}] Missing required parameters. Please provide path, symbolName, symbolType, and content.`);
   }
-
 
   const chatService = registry.requireFirstServiceByType(ChatService);
   const fileSystem = registry.requireFirstServiceByType(FileSystemService);
@@ -35,20 +36,19 @@ export async function execute(
     ? `${symbolType} '${symbolName}' in class '${parentClass}'`
     : `${symbolType} '${symbolName}'`;
   chatService.infoLine(
-    `[symbol] Modifying ${symbolDescription} in ${filePath}`
+    `[${name}] Modifying ${symbolDescription} in ${filePath}`
   );
-
 
   try {
     const fileExists = await fileSystem.exists(filePath);
     if (!fileExists) {
-      return {error: `File ${filePath} not found. Please create the file first.`};
+      throw new Error(`[${name}] File ${filePath} not found. Please create the file first.`);
     }
 
     const ext = path.extname(filePath);
     const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
     if (!supported.includes(ext)) {
-      return {error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`};
+      throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
     }
 
     const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
@@ -77,11 +77,11 @@ export async function execute(
       if (success) {
         fileSystem.setDirty(true);
         chatService.infoLine(
-          `[symbol] Successfully modified ${symbolDescription} in ${filePath}`
+          `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
         );
         return `${symbolDescription} successfully modified`;
       } else {
-        return {error: `Failed to write changes to ${filePath}`};
+        throw new Error(`[${name}] Failed to write changes to ${filePath}`);
       }
     }
 
@@ -92,15 +92,16 @@ export async function execute(
     try {
       ParserMod = await import("tree-sitter");
     } catch {
+      // ignore
     }
     if (!ParserMod) {
-      return {error: `Failed to load parser for ${filePath}`};
+      throw new Error(`[${name}] Failed to load parser for ${filePath}`);
     }
     const parser: any = new (ParserMod as any).default();
 
     const lang = await loadLanguage(ext);
     if (!lang) {
-      return {error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`};
+      throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
     }
     parser.setLanguage(lang);
     const tree = parser.parse(originalCode);
@@ -108,7 +109,7 @@ export async function execute(
     if (parentClass) {
       const classSymbol = findSymbol(tree, parentClass, "class");
       if (!classSymbol) {
-        return {error: `Parent class '${parentClass}' not found in ${filePath}.`};
+        throw new Error(`[${name}] Parent class '${parentClass}' not found in ${filePath}.`);
       }
 
       const existingSymbol = findSymbolInClass(
@@ -146,7 +147,7 @@ export async function execute(
     }
 
     if (!newCode) {
-      return {error: "Failed to generate modified code."};
+      throw new Error(`[${name}] Failed to generate modified code.`);
     }
 
     const success = await fileSystem.writeFile(filePath, newCode);
@@ -154,15 +155,14 @@ export async function execute(
     if (success) {
       fileSystem.setDirty(true);
       chatService.infoLine(
-        `[symbol] Successfully modified ${symbolDescription} in ${filePath}`
+        `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
       );
       return `${symbolDescription} successfully modified`;
     } else {
-      return {error: `Failed to write changes to ${filePath}`};
+      throw new Error(`[${name}] Failed to write changes to ${filePath}`);
     }
   } catch (err: any) {
-    chatService.errorLine(`[symbol] Error: ${err.message}`);
-    return {error: `Error modifying symbol: ${err.message}`};
+    throw err;
   }
 }
 
@@ -447,7 +447,6 @@ export const parameters = z.object({
     .optional(),
 });
 
-
 function deleteSymbol(originalCode: string, existingSymbol: any) {
   const lines = originalCode.split("\n");
   const startLine = existingSymbol.startPosition.row;
@@ -473,7 +472,6 @@ function deleteSymbol(originalCode: string, existingSymbol: any) {
   const replaced = replaceSymbol(originalCode, existingSymbol, "");
   return replaced.replace(/\n{3,}/g, "\n\n");
 }
-
 
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
