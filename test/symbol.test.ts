@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
+import {ChatService} from "@token-ring/chat";
+import {FileSystemService} from "@token-ring/filesystem";
+import {Registry} from "@token-ring/registry";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {execute as executeSymbol} from "./symbol.ts";
-import {Registry, ServiceRegistry} from "@token-ring/registry";
-import {FileSystemService} from "@token-ring/filesystem";
-import {ChatService} from "@token-ring/chat";
 
 class MockFileSystemService extends FileSystemService {
   files = new Map<string, string>();
@@ -32,15 +32,15 @@ class MockChatService extends ChatService {
   messages: { type: string; message: string }[] = [];
 
   infoLine(message: string) {
-    this.messages.push({ type: "info", message });
+    this.messages.push({type: "info", message});
   }
 
   errorLine(message: string) {
-    this.messages.push({ type: "error", message });
+    this.messages.push({type: "error", message});
   }
 
   systemLine(message: string) {
-    this.messages.push({ type: "system", message });
+    this.messages.push({type: "system", message});
   }
 }
 
@@ -53,19 +53,19 @@ describe("@token-ring/repo-map tools/symbol.ts", () => {
     registry = new Registry();
     mockFileSystemService = new MockFileSystemService();
     mockChatService = new MockChatService({
-        personas: {
-          code: {
-              instructions:
-                  "You are an expert developer assistant in an interactive chat, with access to a variety of tools to safely update the users existing codebase and execute tasks the user has requested. " +
-                  "When the user tells you to do something, you should assume that the user is asking you to use the available tools to update their codebase. " +
-                  "You should prefer using tools to implement code changes, even large code changes. " +
-                  "When making code changes, give short and concise responses summarizing the code changes",
-              model: "kimi-k2-instruct",
-              temperature: 0.2,
-              top_p: 0.1,
-          },
+      personas: {
+        code: {
+          instructions:
+            "You are an expert developer assistant in an interactive chat, with access to a variety of tools to safely update the users existing codebase and execute tasks the user has requested. " +
+            "When the user tells you to do something, you should assume that the user is asking you to use the available tools to update their codebase. " +
+            "You should prefer using tools to implement code changes, even large code changes. " +
+            "When making code changes, give short and concise responses summarizing the code changes",
+          model: "kimi-k2-instruct",
+          temperature: 0.2,
+          top_p: 0.1,
         },
-        persona: 'code'
+      },
+      persona: 'code'
     });
 
     registry.services.addServices(mockFileSystemService);

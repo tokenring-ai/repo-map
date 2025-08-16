@@ -1,5 +1,5 @@
-export { default as RepoMapResource } from "./RepoMapResource.ts";
-export { default as RepoMapService } from "./RepoMapService.ts";
+export {default as RepoMapResource} from "./RepoMapResource.ts";
+export {default as RepoMapService} from "./RepoMapService.ts";
 export * as chatCommands from "./chatCommands.ts";
 
 export * as tools from "./tools.ts";

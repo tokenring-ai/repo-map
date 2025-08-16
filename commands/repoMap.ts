@@ -1,6 +1,6 @@
 import ChatService from "@token-ring/chat/ChatService";
-import RepoMapService from "../RepoMapService.ts";
 import {Registry} from "@token-ring/registry";
+import RepoMapService from "../RepoMapService.ts";
 
 export const description = "/repo-map - Show the repository map.";
 

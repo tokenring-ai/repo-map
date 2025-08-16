@@ -1,8 +1,8 @@
-import path from "path";
 import {ChatService} from "@token-ring/chat";
 import {FileSystemService} from "@token-ring/filesystem";
-import {z} from "zod";
 import {Registry} from "@token-ring/registry";
+import path from "path";
+import {z} from "zod";
 
 export interface ExecuteParams {
   path?: string;
@@ -20,11 +20,11 @@ export interface ExecuteParams {
 }
 
 export async function execute(
-  { path: filePath, symbolName, symbolType, content, parentClass }: ExecuteParams,
+  {path: filePath, symbolName, symbolType, content, parentClass}: ExecuteParams,
   registry: Registry
-): Promise<string|{ error:string; }> {
+): Promise<string | { error: string; }> {
   if (!filePath || !symbolName || !symbolType || content === undefined) {
-      return { error: "Missing required parameters. Please provide path, symbolName, symbolType, and content." };
+    return {error: "Missing required parameters. Please provide path, symbolName, symbolType, and content."};
   }
 
 
@@ -42,13 +42,13 @@ export async function execute(
   try {
     const fileExists = await fileSystem.exists(filePath);
     if (!fileExists) {
-      return { error: `File ${filePath} not found. Please create the file first.` };
+      return {error: `File ${filePath} not found. Please create the file first.`};
     }
 
     const ext = path.extname(filePath);
     const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
     if (!supported.includes(ext)) {
-      return { error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp` };
+      return {error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`};
     }
 
     const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
@@ -81,7 +81,7 @@ export async function execute(
         );
         return `${symbolDescription} successfully modified`;
       } else {
-        return { error: `Failed to write changes to ${filePath}` };
+        return {error: `Failed to write changes to ${filePath}`};
       }
     }
 
@@ -91,15 +91,16 @@ export async function execute(
     let ParserMod: any = null;
     try {
       ParserMod = await import("tree-sitter");
-    } catch {}
+    } catch {
+    }
     if (!ParserMod) {
-      return { error: `Failed to load parser for ${filePath}` };
+      return {error: `Failed to load parser for ${filePath}`};
     }
     const parser: any = new (ParserMod as any).default();
 
     const lang = await loadLanguage(ext);
     if (!lang) {
-      return { error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp` };
+      return {error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`};
     }
     parser.setLanguage(lang);
     const tree = parser.parse(originalCode);
@@ -107,7 +108,7 @@ export async function execute(
     if (parentClass) {
       const classSymbol = findSymbol(tree, parentClass, "class");
       if (!classSymbol) {
-        return { error: `Parent class '${parentClass}' not found in ${filePath}.` };
+        return {error: `Parent class '${parentClass}' not found in ${filePath}.`};
       }
 
       const existingSymbol = findSymbolInClass(
@@ -145,7 +146,7 @@ export async function execute(
     }
 
     if (!newCode) {
-      return { error: "Failed to generate modified code." };
+      return {error: "Failed to generate modified code."};
     }
 
     const success = await fileSystem.writeFile(filePath, newCode);
@@ -157,11 +158,11 @@ export async function execute(
       );
       return `${symbolDescription} successfully modified`;
     } else {
-      return { error: `Failed to write changes to ${filePath}` };
+      return {error: `Failed to write changes to ${filePath}`};
     }
   } catch (err: any) {
     chatService.errorLine(`[symbol] Error: ${err.message}`);
-    return { error: `Error modifying symbol: ${err.message}` };
+    return {error: `Error modifying symbol: ${err.message}`};
   }
 }
 
@@ -171,16 +172,28 @@ async function loadLanguage(ext: string): Promise<any | null> {
     case ".jsx":
     case ".ts":
     case ".tsx":
-      try { return (await import("tree-sitter-javascript")).default as any; } catch { return null; }
+      try {
+        return (await import("tree-sitter-javascript")).default as any;
+      } catch {
+        return null;
+      }
     case ".py":
-      try { return (await import("tree-sitter-python")).default as any; } catch { return null; }
+      try {
+        return (await import("tree-sitter-python")).default as any;
+      } catch {
+        return null;
+      }
     case ".h":
     case ".c":
     case ".hxx":
     case ".cxx":
     case ".hpp":
     case ".cpp":
-      try { return (await import("tree-sitter-cpp")).default as any; } catch { return null; }
+      try {
+        return (await import("tree-sitter-cpp")).default as any;
+      } catch {
+        return null;
+      }
     default:
       return null;
   }
@@ -493,7 +506,7 @@ function findTopLevelFunctionRange(code: string, name: string): { start: number;
       if (depth === 0) {
         // Include the closing brace
         const end = i + 1;
-        return { start, end };
+        return {start, end};
       }
     }
   }

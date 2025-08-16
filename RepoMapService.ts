@@ -1,10 +1,10 @@
+import {FileSystemService} from "@token-ring/filesystem";
 import {Registry, Service} from "@token-ring/registry";
 import path from "path";
 import Parser from "tree-sitter";
-import JS from "tree-sitter-javascript";
 import CPP from "tree-sitter-cpp";
+import JS from "tree-sitter-javascript";
 import Python from "tree-sitter-python";
-import {FileSystemService} from "@token-ring/filesystem";
 import RepoMapResource from "./RepoMapResource.ts";
 
 export type Memory = { role: string; content: string };
@@ -14,7 +14,7 @@ export default class RepoMapService extends Service {
    * Asynchronously yields memories from a repo map
    * @param {any} registry - The registry object containing available services
    */
-  async *getMemories(registry: Registry): AsyncGenerator<Memory> {
+  async* getMemories(registry: Registry): AsyncGenerator<Memory> {
     const fileSystem = registry.requireFirstServiceByType(FileSystemService);
 
     const files = new Set<string>();
@@ -259,7 +259,7 @@ export default class RepoMapService extends Service {
         actualLine++;
       }
 
-      return { ...symbol, actualLine };
+      return {...symbol, actualLine};
     });
 
     const importantLines = new Set<number>();

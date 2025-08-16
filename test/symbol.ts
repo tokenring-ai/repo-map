@@ -1,1 +1,1 @@
-export { execute } from "../tools/symbol.ts";
+export {execute} from "../tools/symbol.ts";

@@ -11,8 +11,6 @@ export interface RepoMapResourceParams {
 }
 
 export default class RepoMapResource extends FileMatchResource {
-  name = "RepoMapResource";
-  description = "Provides RepoMap functionality";
   static constructorProperties = {
     baseDirectory: {
       type: "string",
@@ -39,6 +37,8 @@ export default class RepoMapResource extends FileMatchResource {
       },
     },
   } as const;
+  name = "RepoMapResource";
+  description = "Provides RepoMap functionality";
 
   constructor(params: RepoMapResourceParams) {
     super(params as any);
