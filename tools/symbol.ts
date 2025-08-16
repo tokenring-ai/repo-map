@@ -22,9 +22,9 @@ export interface ExecuteParams {
 export async function execute(
   { path: filePath, symbolName, symbolType, content, parentClass }: ExecuteParams,
   registry: Registry
-): Promise<string> {
+): Promise<string|{ error:string; }> {
   if (!filePath || !symbolName || !symbolType || content === undefined) {
-      return `Error: Missing required parameters. Please provide path, symbolName, symbolType, and content.`;
+      return { error: "Missing required parameters. Please provide path, symbolName, symbolType, and content." };
   }
 
 
@@ -35,20 +35,20 @@ export async function execute(
     ? `${symbolType} '${symbolName}' in class '${parentClass}'`
     : `${symbolType} '${symbolName}'`;
   chatService.infoLine(
-    `[RepoMap] Modifying ${symbolDescription} in ${filePath}`
+    `[symbol] Modifying ${symbolDescription} in ${filePath}`
   );
 
 
   try {
     const fileExists = await fileSystem.exists(filePath);
     if (!fileExists) {
-      return `Error: File ${filePath} not found. Please create the file first.`;
+      return { error: `File ${filePath} not found. Please create the file first.` };
     }
 
     const ext = path.extname(filePath);
     const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
     if (!supported.includes(ext)) {
-      return `Error: Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`;
+      return { error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp` };
     }
 
     const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
@@ -77,11 +77,11 @@ export async function execute(
       if (success) {
         fileSystem.setDirty(true);
         chatService.infoLine(
-          `[RepoMap] Successfully modified ${symbolDescription} in ${filePath}`
+          `[symbol] Successfully modified ${symbolDescription} in ${filePath}`
         );
         return `${symbolDescription} successfully modified`;
       } else {
-        return `Error: Failed to write changes to ${filePath}`;
+        return { error: `Failed to write changes to ${filePath}` };
       }
     }
 
@@ -93,13 +93,13 @@ export async function execute(
       ParserMod = await import("tree-sitter");
     } catch {}
     if (!ParserMod) {
-      return `Error: Failed to load parser for ${filePath}`;
+      return { error: `Failed to load parser for ${filePath}` };
     }
     const parser: any = new (ParserMod as any).default();
 
     const lang = await loadLanguage(ext);
     if (!lang) {
-      return `Error: Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`;
+      return { error: `Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp` };
     }
     parser.setLanguage(lang);
     const tree = parser.parse(originalCode);
@@ -107,7 +107,7 @@ export async function execute(
     if (parentClass) {
       const classSymbol = findSymbol(tree, parentClass, "class");
       if (!classSymbol) {
-        return `Error: Parent class '${parentClass}' not found in ${filePath}.`;
+        return { error: `Parent class '${parentClass}' not found in ${filePath}.` };
       }
 
       const existingSymbol = findSymbolInClass(
@@ -145,7 +145,7 @@ export async function execute(
     }
 
     if (!newCode) {
-      return `Error: Failed to generate modified code.`;
+      return { error: "Failed to generate modified code." };
     }
 
     const success = await fileSystem.writeFile(filePath, newCode);
@@ -153,15 +153,15 @@ export async function execute(
     if (success) {
       fileSystem.setDirty(true);
       chatService.infoLine(
-        `[RepoMap] Successfully modified ${symbolDescription} in ${filePath}`
+        `[symbol] Successfully modified ${symbolDescription} in ${filePath}`
       );
       return `${symbolDescription} successfully modified`;
     } else {
-      return `Error: Failed to write changes to ${filePath}`;
+      return { error: `Failed to write changes to ${filePath}` };
     }
   } catch (err: any) {
     chatService.errorLine(`[symbol] Error: ${err.message}`);
-    return `Error modifying symbol: ${err.message}`;
+    return { error: `Error modifying symbol: ${err.message}` };
   }
 }
 
