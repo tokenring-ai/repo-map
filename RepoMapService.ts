@@ -32,7 +32,7 @@ export default class RepoMapService extends Service {
           if (!lang) {
             continue;
           }
-          const parser: any = new (Parser as any)();
+          const parser = new Parser();
           parser.setLanguage(lang);
           const code = await fileSystem.getFile(file);
           if (code === null || code === undefined) {

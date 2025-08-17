@@ -1,9 +1,13 @@
 import {ChatService} from "@token-ring/chat";
 import {FileSystemService} from "@token-ring/filesystem";
 import {Registry} from "@token-ring/registry";
+import LanguageJavascript from "tree-sitter-javascript"
+import LanguagePython from "tree-sitter-python";
+import LanguageCPP from "tree-sitter-cpp";
+import LanguageC from "tree-sitter-c"
 import path from "path";
+import Parser from "tree-sitter";
 import {z} from "zod";
-
 export const name = "repo-map/symbol";
 
 export interface ExecuteParams {
@@ -19,6 +23,14 @@ export interface ExecuteParams {
     | "property";
   content?: string;
   parentClass?: string;
+}
+
+// Define a specific type for symbol information instead of using any
+export interface SymbolInfo {
+  node: Parser.SyntaxNode;
+  startPosition: {row: number; column: number};
+  endPosition: {row: number; column: number};
+  text: string;
 }
 
 export async function execute(
@@ -39,7 +51,6 @@ export async function execute(
     `[${name}] Modifying ${symbolDescription} in ${filePath}`
   );
 
-  try {
     const fileExists = await fileSystem.exists(filePath);
     if (!fileExists) {
       throw new Error(`[${name}] File ${filePath} not found. Please create the file first.`);
@@ -88,16 +99,7 @@ export async function execute(
     // Tree-sitter path for other languages or nested cases
     let newCode: string | undefined;
 
-    let ParserMod: any = null;
-    try {
-      ParserMod = await import("tree-sitter");
-    } catch {
-      // ignore
-    }
-    if (!ParserMod) {
-      throw new Error(`[${name}] Failed to load parser for ${filePath}`);
-    }
-    const parser: any = new (ParserMod as any).default();
+    const parser = new Parser()
 
     const lang = await loadLanguage(ext);
     if (!lang) {
@@ -123,7 +125,7 @@ export async function execute(
       } else {
         newCode = createSymbolInClass(
           originalCode,
-          classSymbol as any,
+          classSymbol as SymbolInfo,
           content,
           symbolType
         );
@@ -161,45 +163,31 @@ export async function execute(
     } else {
       throw new Error(`[${name}] Failed to write changes to ${filePath}`);
     }
-  } catch (err: any) {
-    throw err;
-  }
 }
 
-async function loadLanguage(ext: string): Promise<any | null> {
+async function loadLanguage(ext: string): Promise<Parser.Language | null> {
   switch (ext) {
     case ".js":
     case ".jsx":
     case ".ts":
     case ".tsx":
-      try {
-        return (await import("tree-sitter-javascript")).default as any;
-      } catch {
-        return null;
-      }
+      return LanguageJavascript as Parser.Language;
     case ".py":
-      try {
-        return (await import("tree-sitter-python")).default as any;
-      } catch {
-        return null;
-      }
+      return LanguagePython as Parser.Language;
     case ".h":
     case ".c":
+      return LanguageC as Parser.Language;
     case ".hxx":
     case ".cxx":
     case ".hpp":
     case ".cpp":
-      try {
-        return (await import("tree-sitter-cpp")).default as any;
-      } catch {
-        return null;
-      }
+      return LanguageCPP as Parser.Language;
     default:
       return null;
   }
 }
 
-function findSymbol(tree: any, symbolName: string, symbolType: string) {
+function findSymbol(tree: Parser.Tree, symbolName: string, symbolType: string): SymbolInfo | null {
   const symbolTypes: Record<string, string[]> = {
     function: ["function_declaration", "function_definition"],
     class: ["class_declaration", "class_definition"],
@@ -217,7 +205,7 @@ function findSymbol(tree: any, symbolName: string, symbolType: string) {
   const targetTypes = symbolTypes[symbolType] || [symbolType];
   const cursor = tree.walk();
 
-  function traverse(): any {
+  function traverse(): SymbolInfo | null {
     const node = cursor.currentNode;
 
     if (targetTypes.includes(node.type)) {
@@ -272,10 +260,10 @@ function findSymbol(tree: any, symbolName: string, symbolType: string) {
 }
 
 function findSymbolInClass(
-  classNode: any,
+  classNode: Parser.SyntaxNode,
   symbolName: string,
   symbolType: string
-) {
+): SymbolInfo | null {
   const symbolTypes: Record<string, string[]> = {
     method: ["method_definition"],
     constructor: ["method_definition"],
@@ -285,7 +273,7 @@ function findSymbolInClass(
   const targetTypes = symbolTypes[symbolType] || [symbolType];
   const cursor = classNode.walk();
 
-  function traverse(): any {
+  function traverse(): SymbolInfo | null {
     const node = cursor.currentNode;
 
     if (targetTypes.includes(node.type)) {
@@ -335,7 +323,7 @@ function findSymbolInClass(
   return traverse();
 }
 
-function createSymbolInfo(node: any) {
+function createSymbolInfo(node: Parser.SyntaxNode): SymbolInfo {
   return {
     node: node,
     startPosition: node.startPosition,
@@ -344,7 +332,7 @@ function createSymbolInfo(node: any) {
   };
 }
 
-function replaceSymbol(originalCode: string, existingSymbol: any, newContent: string) {
+function replaceSymbol(originalCode: string, existingSymbol: SymbolInfo, newContent: string) {
   const lines = originalCode.split("\n");
   const startLine = existingSymbol.startPosition.row;
   const endLine = existingSymbol.endPosition.row;
@@ -372,7 +360,7 @@ function replaceSymbol(originalCode: string, existingSymbol: any, newContent: st
 
 function createSymbolInClass(
   originalCode: string,
-  classSymbol: any,
+  classSymbol: SymbolInfo,
   content: string,
   _symbolType: string
 ) {
@@ -447,7 +435,7 @@ export const parameters = z.object({
     .optional(),
 });
 
-function deleteSymbol(originalCode: string, existingSymbol: any) {
+function deleteSymbol(originalCode: string, existingSymbol: SymbolInfo) {
   const lines = originalCode.split("\n");
   const startLine = existingSymbol.startPosition.row;
   const endLine = existingSymbol.endPosition.row;
