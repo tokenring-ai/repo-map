@@ -27,6 +27,7 @@ export async function execute(_remainder: string, registry: Registry) {
   }
 }
 
+// noinspection JSUnusedGlobalSymbols
 export function help() {
   return ["/repo-map - Show the repository map"];
 }

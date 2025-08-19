@@ -62,7 +62,7 @@ describe("@token-ring/repo-map tools/symbol.ts", () => {
             "When making code changes, give short and concise responses summarizing the code changes",
           model: "kimi-k2-instruct",
           temperature: 0.2,
-          top_p: 0.1,
+          topP: 0.1,
         },
       },
       persona: 'code'

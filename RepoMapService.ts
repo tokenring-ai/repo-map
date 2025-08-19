@@ -1,5 +1,7 @@
+import {ChatService} from "@token-ring/chat";
 import {FileSystemService} from "@token-ring/filesystem";
 import {Registry, Service} from "@token-ring/registry";
+import {MemoryItemMessage} from "@token-ring/registry/Service";
 import path from "path";
 import Parser from "tree-sitter";
 import CPP from "tree-sitter-cpp";
@@ -7,14 +9,11 @@ import JS from "tree-sitter-javascript";
 import Python from "tree-sitter-python";
 import RepoMapResource from "./RepoMapResource.ts";
 
-export type Memory = { role: string; content: string };
-
 export default class RepoMapService extends Service {
   /**
    * Asynchronously yields memories from a repo map
-   * @param {any} registry - The registry object containing available services
    */
-  async* getMemories(registry: Registry): AsyncGenerator<Memory> {
+  async* getMemories(registry: Registry): AsyncGenerator<MemoryItemMessage> {
     const fileSystem = registry.requireFirstServiceByType(FileSystemService);
 
     const files = new Set<string>();
@@ -36,9 +35,6 @@ export default class RepoMapService extends Service {
           parser.setLanguage(lang);
           const code = await fileSystem.getFile(file);
           if (code === null || code === undefined) {
-            console.error(
-              `[RepoMapService] Error: Could not read content for file ${file}. Skipping.`
-            );
             continue;
           }
           const tree = parser.parse(code);
@@ -47,10 +43,8 @@ export default class RepoMapService extends Service {
           const formattedOutput = this.formatFileOutput(file, code, symbols);
           if (formattedOutput) repoMap.push(formattedOutput);
         } catch (error) {
-          console.error(
-            `[RepoMapService] Error processing file ${file}:`,
-            error
-          );
+          const chatService = registry.requireFirstServiceByType(ChatService);
+          chatService.errorLine(`[RepoMapService] Error processing file ${file}:`, error);
         }
       }
 

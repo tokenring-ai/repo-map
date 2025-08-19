@@ -1,13 +1,14 @@
 import {ChatService} from "@token-ring/chat";
 import {FileSystemService} from "@token-ring/filesystem";
 import {Registry} from "@token-ring/registry";
-import LanguageJavascript from "tree-sitter-javascript"
-import LanguagePython from "tree-sitter-python";
-import LanguageCPP from "tree-sitter-cpp";
-import LanguageC from "tree-sitter-c"
 import path from "path";
 import Parser from "tree-sitter";
+import LanguageC from "tree-sitter-c"
+import LanguageCPP from "tree-sitter-cpp";
+import LanguageJavascript from "tree-sitter-javascript"
+import LanguagePython from "tree-sitter-python";
 import {z} from "zod";
+
 export const name = "repo-map/symbol";
 
 export interface ExecuteParams {
@@ -28,8 +29,8 @@ export interface ExecuteParams {
 // Define a specific type for symbol information instead of using any
 export interface SymbolInfo {
   node: Parser.SyntaxNode;
-  startPosition: {row: number; column: number};
-  endPosition: {row: number; column: number};
+  startPosition: { row: number; column: number };
+  endPosition: { row: number; column: number };
   text: string;
 }
 
@@ -51,109 +52,40 @@ export async function execute(
     `[${name}] Modifying ${symbolDescription} in ${filePath}`
   );
 
-    const fileExists = await fileSystem.exists(filePath);
-    if (!fileExists) {
-      throw new Error(`[${name}] File ${filePath} not found. Please create the file first.`);
-    }
+  const fileExists = await fileSystem.exists(filePath);
+  if (!fileExists) {
+    throw new Error(`[${name}] File ${filePath} not found. Please create the file first.`);
+  }
 
-    const ext = path.extname(filePath);
-    const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
-    if (!supported.includes(ext)) {
-      throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
-    }
+  const ext = path.extname(filePath);
+  const supported = [".js", ".jsx", ".ts", ".tsx", ".py", ".c", ".cpp", ".h", ".hpp", ".hxx", ".cxx"];
+  if (!supported.includes(ext)) {
+    throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
+  }
 
-    const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
+  const originalCode: string = (await fileSystem.getFile(filePath)) ?? "";
 
-    // Fast path: JS/TS top-level function manipulation without tree-sitter
-    if ((!parentClass) && symbolType === "function" && [".js", ".jsx", ".ts", ".tsx"].includes(ext)) {
-      let newCode: string | undefined;
-      const range = findTopLevelFunctionRange(originalCode, symbolName);
-      if (range) {
-        if (content === "") {
-          newCode = originalCode.slice(0, range.start) + originalCode.slice(range.end);
-          // Normalize potential excessive blank lines created by deletion
-          newCode = newCode.replace(/\n{3,}/g, "\n\n");
-        } else {
-          newCode = originalCode.slice(0, range.start) + content + originalCode.slice(range.end);
-        }
-      } else {
-        if ((originalCode ?? "").trim() === "") {
-          newCode = content.trim();
-        } else {
-          newCode = `${originalCode.trim()}\n${content.trim()}`;
-        }
-      }
-
-      const success = await fileSystem.writeFile(filePath, newCode);
-      if (success) {
-        fileSystem.setDirty(true);
-        chatService.infoLine(
-          `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
-        );
-        return `${symbolDescription} successfully modified`;
-      } else {
-        throw new Error(`[${name}] Failed to write changes to ${filePath}`);
-      }
-    }
-
-    // Tree-sitter path for other languages or nested cases
+  // Fast path: JS/TS top-level function manipulation without tree-sitter
+  if ((!parentClass) && symbolType === "function" && [".js", ".jsx", ".ts", ".tsx"].includes(ext)) {
     let newCode: string | undefined;
-
-    const parser = new Parser()
-
-    const lang = await loadLanguage(ext);
-    if (!lang) {
-      throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
-    }
-    parser.setLanguage(lang);
-    const tree = parser.parse(originalCode);
-
-    if (parentClass) {
-      const classSymbol = findSymbol(tree, parentClass, "class");
-      if (!classSymbol) {
-        throw new Error(`[${name}] Parent class '${parentClass}' not found in ${filePath}.`);
-      }
-
-      const existingSymbol = findSymbolInClass(
-        classSymbol.node,
-        symbolName,
-        symbolType
-      );
-
-      if (existingSymbol) {
-        newCode = replaceSymbol(originalCode, existingSymbol, content);
+    const range = findTopLevelFunctionRange(originalCode, symbolName);
+    if (range) {
+      if (content === "") {
+        newCode = originalCode.slice(0, range.start) + originalCode.slice(range.end);
+        // Normalize potential excessive blank lines created by deletion
+        newCode = newCode.replace(/\n{3,}/g, "\n\n");
       } else {
-        newCode = createSymbolInClass(
-          originalCode,
-          classSymbol as SymbolInfo,
-          content,
-          symbolType
-        );
+        newCode = originalCode.slice(0, range.start) + content + originalCode.slice(range.end);
       }
     } else {
-      const existingSymbol = findSymbol(tree, symbolName, symbolType);
-
-      if (existingSymbol) {
-        if (content === "") {
-          newCode = deleteSymbol(originalCode, existingSymbol);
-        } else {
-          newCode = replaceSymbol(originalCode, existingSymbol, content);
-        }
+      if ((originalCode ?? "").trim() === "") {
+        newCode = content.trim();
       } else {
-        if ((originalCode ?? "").trim() === "") {
-          newCode = content.trim();
-        } else {
-          newCode = `${originalCode.trim()}\n${content.trim()}`;
-        }
+        newCode = `${originalCode.trim()}\n${content.trim()}`;
       }
-    }
-
-    if (!newCode) {
-      throw new Error(`[${name}] Failed to generate modified code.`);
     }
 
     const success = await fileSystem.writeFile(filePath, newCode);
-
     if (success) {
       fileSystem.setDirty(true);
       chatService.infoLine(
@@ -163,6 +95,75 @@ export async function execute(
     } else {
       throw new Error(`[${name}] Failed to write changes to ${filePath}`);
     }
+  }
+
+  // Tree-sitter path for other languages or nested cases
+  let newCode: string | undefined;
+
+  const parser = new Parser()
+
+  const lang = await loadLanguage(ext);
+  if (!lang) {
+    throw new Error(`[${name}] Unsupported file type for ${filePath}. Supported: .js, .jsx, .ts, .tsx, .py, .c, .cpp, .h, .hpp`);
+  }
+  parser.setLanguage(lang);
+  const tree = parser.parse(originalCode);
+
+  if (parentClass) {
+    const classSymbol = findSymbol(tree, parentClass, "class");
+    if (!classSymbol) {
+      throw new Error(`[${name}] Parent class '${parentClass}' not found in ${filePath}.`);
+    }
+
+    const existingSymbol = findSymbolInClass(
+      classSymbol.node,
+      symbolName,
+      symbolType
+    );
+
+    if (existingSymbol) {
+      newCode = replaceSymbol(originalCode, existingSymbol, content);
+    } else {
+      newCode = createSymbolInClass(
+        originalCode,
+        classSymbol as SymbolInfo,
+        content,
+        symbolType
+      );
+    }
+  } else {
+    const existingSymbol = findSymbol(tree, symbolName, symbolType);
+
+    if (existingSymbol) {
+      if (content === "") {
+        newCode = deleteSymbol(originalCode, existingSymbol);
+      } else {
+        newCode = replaceSymbol(originalCode, existingSymbol, content);
+      }
+    } else {
+      if ((originalCode ?? "").trim() === "") {
+        newCode = content.trim();
+      } else {
+        newCode = `${originalCode.trim()}\n${content.trim()}`;
+      }
+    }
+  }
+
+  if (!newCode) {
+    throw new Error(`[${name}] Failed to generate modified code.`);
+  }
+
+  const success = await fileSystem.writeFile(filePath, newCode);
+
+  if (success) {
+    fileSystem.setDirty(true);
+    chatService.infoLine(
+      `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
+    );
+    return `${symbolDescription} successfully modified`;
+  } else {
+    throw new Error(`[${name}] Failed to write changes to ${filePath}`);
+  }
 }
 
 async function loadLanguage(ext: string): Promise<Parser.Language | null> {
@@ -400,7 +401,7 @@ function getIndentation(line: string) {
 export const description =
   "Create or replace specific symbols (functions, classes, variables, methods, constructors, properties) in source code files using Tree-sitter parsing. Supports nested symbols like methods within classes.";
 
-export const parameters = z.object({
+export const inputSchema = z.object({
   path: z
     .string()
     .describe(
