@@ -2,14 +2,23 @@ import {ChatService} from "@token-ring/chat";
 import {FileSystemService} from "@token-ring/filesystem";
 import {Registry, Service} from "@token-ring/registry";
 import {MemoryItemMessage} from "@token-ring/registry/Service";
+import GenericMultipleRegistry from "@token-ring/utility/GenericMultipleRegistry";
 import path from "path";
 import Parser from "tree-sitter";
 import CPP from "tree-sitter-cpp";
 import JS from "tree-sitter-javascript";
 import Python from "tree-sitter-python";
-import RepoMapResource from "./RepoMapResource.ts";
+import RepoMapResource from "./RepoMapResource.js";
 
 export default class RepoMapService extends Service {
+  private resourceRegistry = new GenericMultipleRegistry<RepoMapResource>();
+
+  registerResource = this.resourceRegistry.register;
+  getActiveResourceNames = this.resourceRegistry.getActiveItemNames;
+  enableResources = this.resourceRegistry.enableItem;
+  getAvailableResources = this.resourceRegistry.getAllItemNames;
+
+  
   /**
    * Asynchronously yields memories from a repo map
    */
@@ -18,9 +27,9 @@ export default class RepoMapService extends Service {
 
     const files = new Set<string>();
 
-    const resources = registry.resources.getResourcesByType(RepoMapResource);
-    for (const resource of resources) {
-      await resource.addFilesToSet(files, registry);
+    const activeResources = this.resourceRegistry.getActiveItemEntries();
+    for (const name in activeResources) {
+      await activeResources[name].addFilesToSet(files, registry);
     }
 
     if (files.size > 0) {
