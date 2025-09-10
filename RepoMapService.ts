@@ -1,8 +1,7 @@
-import {ChatService} from "@token-ring/chat";
-import {FileSystemService} from "@token-ring/filesystem";
-import {Registry, Service} from "@token-ring/registry";
-import {MemoryItemMessage} from "@token-ring/registry/Service";
-import GenericMultipleRegistry from "@token-ring/utility/GenericMultipleRegistry";
+import {Agent} from "@tokenring-ai/agent";
+import {MemoryItemMessage, TokenRingService} from "@tokenring-ai/agent/types";
+import {FileSystemService} from "@tokenring-ai/filesystem";
+import KeyedRegistryWithMultipleSelection from "@tokenring-ai/utility/KeyedRegistryWithMultipleSelection";
 import path from "path";
 import Parser from "tree-sitter";
 import CPP from "tree-sitter-cpp";
@@ -10,26 +9,28 @@ import JS from "tree-sitter-javascript";
 import Python from "tree-sitter-python";
 import RepoMapResource from "./RepoMapResource.js";
 
-export default class RepoMapService extends Service {
-  private resourceRegistry = new GenericMultipleRegistry<RepoMapResource>();
+export default class RepoMapService implements TokenRingService {
+  name = "RepoMapService";
+  description = "Repository map service";
+  private resourceRegistry = new KeyedRegistryWithMultipleSelection<RepoMapResource>();
 
   registerResource = this.resourceRegistry.register;
   getActiveResourceNames = this.resourceRegistry.getActiveItemNames;
-  enableResources = this.resourceRegistry.enableItem;
+  enableResources = this.resourceRegistry.enableItems;
   getAvailableResources = this.resourceRegistry.getAllItemNames;
 
-  
+
   /**
    * Asynchronously yields memories from a repo map
    */
-  async* getMemories(registry: Registry): AsyncGenerator<MemoryItemMessage> {
-    const fileSystem = registry.requireFirstServiceByType(FileSystemService);
+  async* getMemories(agent: Agent): AsyncGenerator<MemoryItemMessage> {
+    const fileSystem = agent.requireFirstServiceByType(FileSystemService);
 
     const files = new Set<string>();
 
     const activeResources = this.resourceRegistry.getActiveItemEntries();
     for (const name in activeResources) {
-      await activeResources[name].addFilesToSet(files, registry);
+      await activeResources[name].addFilesToSet(files, agent);
     }
 
     if (files.size > 0) {
@@ -52,8 +53,7 @@ export default class RepoMapService extends Service {
           const formattedOutput = this.formatFileOutput(file, code, symbols);
           if (formattedOutput) repoMap.push(formattedOutput);
         } catch (error) {
-          const chatService = registry.requireFirstServiceByType(ChatService);
-          chatService.errorLine(`[RepoMapService] Error processing file ${file}:`, error);
+          agent.errorLine(`[RepoMapService] Error processing file ${file}:`, error as Error);
         }
       }
 

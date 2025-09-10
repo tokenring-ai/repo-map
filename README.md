@@ -1,6 +1,6 @@
-# @token-ring/repo-map
+# @tokenring-ai/repo-map
 
-The `@token-ring/repo-map` package provides utilities to:
+The `@tokenring-ai/repo-map` package provides utilities to:
 
 - Generate a concise "repository map" from source files using Tree-sitter parsing, suitable for injecting into an AI
   chat context as memory.
@@ -28,7 +28,7 @@ Package metadata is also exported via `name`, `description`, and `version` in `i
 
 ### RepoMapResource
 
-Configures inputs for the map by extending `@token-ring/filesystem`'s `FileMatchResource`.
+Configures inputs for the map by extending `@tokenring-ai/filesystem`'s `FileMatchResource`.
 
 Constructor parameters:
 
@@ -40,7 +40,7 @@ Constructor parameters:
 Example:
 
 ```ts
-import { RepoMapResource } from "@token-ring/repo-map";
+import { RepoMapResource } from "@tokenring-ai/repo-map";
 
 const repoMapResource = new RepoMapResource({
   baseDirectory: "/path/to/project",
@@ -80,8 +80,8 @@ Key points:
 Typical usage via the registry:
 
 ```ts
-import {ServiceRegistry} from "@token-ring/registry";
-import {RepoMapService, RepoMapResource} from "@token-ring/repo-map";
+import {ServiceRegistry} from "@tokenring-ai/registry";
+import {RepoMapService, RepoMapResource} from "@tokenring-ai/repo-map";
 
 const registry = new ServiceRegistry();
 registry.registerService(new RepoMapService());
@@ -124,8 +124,8 @@ Behavior highlights:
 Example invocation:
 
 ```ts
-import {tools} from "@token-ring/repo-map";
-import {ServiceRegistry} from "@token-ring/registry";
+import {tools} from "@tokenring-ai/repo-map";
+import {ServiceRegistry} from "@tokenring-ai/registry";
 
 const registry = new ServiceRegistry();
 // ...register FileSystemService and ChatService...

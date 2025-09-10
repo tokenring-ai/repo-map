@@ -1,27 +1,25 @@
-import ChatService from "@token-ring/chat/ChatService";
-import {Registry} from "@token-ring/registry";
+import Agent from "@tokenring-ai/agent/Agent";
 import RepoMapService from "../RepoMapService.ts";
 
 export const description = "/repo-map - Show the repository map.";
 
-export async function execute(_remainder: string, registry: Registry) {
-  const chatService = registry.requireFirstServiceByType(ChatService);
-  const repoMapServiceInstance = registry.requireFirstServiceByType(RepoMapService);
+export async function execute(_remainder: string, agent: Agent) {
+  const repoMapServiceInstance = agent.requireFirstServiceByType(RepoMapService);
 
   if (!repoMapServiceInstance) {
-    chatService.systemLine("Error: RepoMapService not found in the registry.");
+    agent.infoLine("Error: RepoMapService not found in the agent.");
     return;
   }
 
   let found = false;
-  for await (const repoMap of repoMapServiceInstance.getMemories(registry)) {
+  for await (const repoMap of repoMapServiceInstance.getMemories(agent)) {
     found = true;
-    chatService.systemLine("Repository map:");
-    chatService.systemLine(repoMap.content);
+    agent.infoLine("Repository map:");
+    agent.infoLine(repoMap.content);
   }
 
   if (!found) {
-    chatService.systemLine(
+    agent.infoLine(
       "No repository map found. Ensure RepoMapResources are configured."
     );
   }

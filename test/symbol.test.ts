@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import {ChatService} from "@token-ring/chat";
-import {FileSystemService} from "@token-ring/filesystem";
-import {Registry} from "@token-ring/registry";
+import Agent from "@tokenring-ai/agent/Agent";
+import {FileSystemService} from "@tokenring-ai/filesystem";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {execute as executeSymbol} from "./symbol.ts";
 
@@ -28,7 +27,7 @@ class MockFileSystemService extends FileSystemService {
   }
 }
 
-class MockChatService extends ChatService {
+class MockChatService extends Agent {
   messages: { type: string; message: string }[] = [];
 
   infoLine(message: string) {
@@ -39,13 +38,13 @@ class MockChatService extends ChatService {
     this.messages.push({type: "error", message});
   }
 
-  systemLine(message: string) {
+  infoLine(message: string) {
     this.messages.push({type: "system", message});
   }
 }
 
-describe("@token-ring/repo-map tools/symbol.ts", () => {
-  let registry: Registry;
+describe("@tokenring-ai/repo-map tools/symbol.ts", () => {
+  let agent: Agent;
   let mockFileSystemService: MockFileSystemService;
   let mockChatService: MockChatService;
 
@@ -68,8 +67,8 @@ describe("@token-ring/repo-map tools/symbol.ts", () => {
       persona: 'code'
     });
 
-    registry.services.addServices(mockFileSystemService);
-    registry.services.addServices(mockChatService);
+    agent.services.addServices(mockFileSystemService);
+    agent.services.addServices(mockChatService);
     vi.clearAllMocks();
   });
 

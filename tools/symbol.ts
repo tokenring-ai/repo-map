@@ -1,6 +1,5 @@
-import {ChatService} from "@token-ring/chat";
-import {FileSystemService} from "@token-ring/filesystem";
-import {Registry} from "@token-ring/registry";
+import Agent from "@tokenring-ai/agent/Agent";
+import {FileSystemService} from "@tokenring-ai/filesystem";
 import path from "path";
 import Parser from "tree-sitter";
 import LanguageC from "tree-sitter-c"
@@ -36,19 +35,18 @@ export interface SymbolInfo {
 
 export async function execute(
   {path: filePath, symbolName, symbolType, content, parentClass}: ExecuteParams,
-  registry: Registry
+  agent: Agent
 ): Promise<string> {
   if (!filePath || !symbolName || !symbolType || content === undefined) {
     throw new Error(`[${name}] Missing required parameters. Please provide path, symbolName, symbolType, and content.`);
   }
 
-  const chatService = registry.requireFirstServiceByType(ChatService);
-  const fileSystem = registry.requireFirstServiceByType(FileSystemService);
+  const fileSystem = agent.requireFirstServiceByType(FileSystemService);
 
   const symbolDescription = parentClass
     ? `${symbolType} '${symbolName}' in class '${parentClass}'`
     : `${symbolType} '${symbolName}'`;
-  chatService.infoLine(
+  agent.infoLine(
     `[${name}] Modifying ${symbolDescription} in ${filePath}`
   );
 
@@ -88,7 +86,7 @@ export async function execute(
     const success = await fileSystem.writeFile(filePath, newCode);
     if (success) {
       fileSystem.setDirty(true);
-      chatService.infoLine(
+      agent.infoLine(
         `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
       );
       return `${symbolDescription} successfully modified`;
@@ -157,7 +155,7 @@ export async function execute(
 
   if (success) {
     fileSystem.setDirty(true);
-    chatService.infoLine(
+    agent.infoLine(
       `[${name}] Successfully modified ${symbolDescription} in ${filePath}`
     );
     return `${symbolDescription} successfully modified`;
