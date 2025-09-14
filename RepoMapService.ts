@@ -3,7 +3,7 @@ import {MemoryItemMessage, TokenRingService} from "@tokenring-ai/agent/types";
 import {FileSystemService} from "@tokenring-ai/filesystem";
 import KeyedRegistryWithMultipleSelection from "@tokenring-ai/utility/KeyedRegistryWithMultipleSelection";
 import path from "path";
-import Parser from "tree-sitter";
+import Parser, {Language} from "tree-sitter";
 import CPP from "tree-sitter-cpp";
 import JS from "tree-sitter-javascript";
 import Python from "tree-sitter-python";
@@ -42,7 +42,7 @@ export default class RepoMapService implements TokenRingService {
             continue;
           }
           const parser = new Parser();
-          parser.setLanguage(lang);
+          parser.setLanguage(lang as Parser.Language); //TODO: Figure out why this is needed
           const code = await fileSystem.getFile(file);
           if (code === null || code === undefined) {
             continue;
@@ -68,19 +68,19 @@ export default class RepoMapService implements TokenRingService {
     }
   }
 
-  loadLanguage(ext: string): any | null {
+  loadLanguage(ext: string): typeof JS | null {
     switch (ext) {
       case ".js":
-        return JS as any;
+        return JS;
       case ".py":
-        return Python as any;
+        return Python;
       case ".h":
       case ".c":
       case ".hxx":
       case ".cxx":
       case ".hpp":
       case ".cpp":
-        return CPP as any;
+        return CPP;
       default:
         return null;
     }
