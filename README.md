@@ -1,168 +1,194 @@
-# @tokenring-ai/repo-map
+# Repo Map Package Documentation
 
-The `@tokenring-ai/repo-map` package provides utilities to:
+## Overview
 
-- Generate a concise "repository map" from source files using Tree-sitter parsing, suitable for injecting into an AI
-  chat context as memory.
-- Manipulate code symbols (functions, classes, variables, methods, etc.) programmatically via a tool.
-- Expose a chat command (`/repo-map`) to print the repository map within the chat UI.
+The `@tokenring-ai/repo-map` package is a service designed to generate a lightweight "repository map" for AI agents in the TokenRing AI ecosystem. It analyzes source code files in supported languages (JavaScript, Python, and C/C++) using Tree-sitter parsers to extract key symbols such as functions, classes, methods, variables, and exports. These symbols are formatted into concise snippets that provide contextual awareness of the codebase without including full file contents. This map is yielded as memory messages to agents, enabling them to reference code structure efficiently (e.g., via a `retrieveFiles` tool).
 
-It integrates with the Token Ring registry/services ecosystem and the Filesystem package to locate and read files.
+The package integrates with the `FileSystemService` to access files and focuses on top-level declarations. It supports error handling for parsing failures and skips unsupported file types or empty contents. The primary role is to augment agent context for repository analysis, navigation, or code-related queries.
 
-## What is a Repository Map?
+## Installation/Setup
 
-A repository map is a compact, human-readable snapshot of important code symbols across selected files. It does not
-include full file contents; instead, it lists file paths and a few key lines (e.g., top-level declarations) to provide
-quick structure awareness and pointers to where details can be retrieved when needed.
+This package is part of the TokenRing AI monorepo. To use it:
 
-## Core Exports
+1. Ensure the parent project has the necessary dependencies installed via `npm install`.
+2. Build the package using the monorepo's build script (e.g., `npm run build` in the root).
+3. Register the `RepoMapService` and `RepoMapResource` in your agent's service registry during initialization.
 
-- `RepoMapService`: Scans configured files and emits a memory payload containing the repository map.
-- `RepoMapResource`: Configures which files/directories should be considered for the map.
-- `chatCommands`: Includes the `/repo-map` command to print the current repository map.
-- `tools`: Includes the `symbol` tool for creating/replacing/deleting symbols within source files.
+Key dependencies are automatically resolved from `package.json`. No additional runtime setup is required beyond enabling resources.
 
-Package metadata is also exported via `name`, `description`, and `version` in `index.ts`.
+For standalone testing or development:
+- Run `npm install` in the `pkg/repo-map` directory.
+- Execute tests with `npm test` (uses Vitest).
 
-## Components
+## Package Structure
 
-### RepoMapResource
+The package follows a standard TypeScript module structure:
 
-Configures inputs for the map by extending `@tokenring-ai/filesystem`'s `FileMatchResource`.
+- **src/** (implied via exports): Core source files.
+  - `RepoMapService.ts`: Main service logic for parsing and symbol extraction.
+  - `RepoMapResource.ts`: Resource class for file matching and integration.
+  - `index.ts`: Package entry point, exports services and package info.
+- **commands/**: Chat command implementations.
+  - `repoMap.ts`: Handles the `/repo-map` command to display the map.
+- **tools/**: Tool exports (e.g., `symbol.ts` for symbol-related utilities).
+- **test/**: Unit tests (e.g., `symbol.test.ts`).
+- `package.json`: Defines dependencies, exports, and scripts.
+- `tsconfig.json`: TypeScript configuration.
+- `README.md`: This documentation.
+- `LICENSE`: MIT license.
 
-Constructor parameters:
+Directories like `tools/` and `commands/` organize extensible components.
 
-- `baseDirectory` (string, required): Root folder from which paths are resolved.
-- `items` (array, optional): List of objects describing inputs.
-- `path` (string, required): A file or directory to include.
-- `ignore` (string, optional): .gitignore/glob-style patterns to exclude.
-
-Example:
-
-```ts
-import { RepoMapResource } from "@tokenring-ai/repo-map";
-
-const repoMapResource = new RepoMapResource({
-  baseDirectory: "/path/to/project",
-  items: [
-    { path: "src" },
-    { path: "pkg", ignore: "**/*.test.*\n**/dist/**" },
-  ],
-});
-```
+## Core Components
 
 ### RepoMapService
 
-Parses supported files and extracts symbols using Tree-sitter. When invoked, it yields a single memory object like:
+The central class implementing `TokenRingService`. It manages resources, parses files, extracts symbols, and generates memory messages.
 
-```ts
-{
-  role: "user",
-  content: "// These are snippets of the symbols in the project...\n<repo-map>"
+- **Key Properties/Methods**:
+  - `name`: `"RepoMapService"` – Service identifier.
+  - `description`: `"Repository map service"` – Brief description.
+  - `registerResource(resource: RepoMapResource)`: Registers a resource for file discovery.
+  - `getActiveResourceNames()`: Returns names of active resources.
+  - `enableResources(names: string[])`: Enables specific resources.
+  - `getAvailableResources()`: Lists all registered resources.
+  - `async* getMemories(agent: Agent): AsyncGenerator<MemoryItemMessage>`: Yields formatted symbol snippets as user messages. Iterates over active resources to collect files, parses them with Tree-sitter, extracts symbols, and formats output. Skips unsupported languages or errors.
+
+**Symbol Extraction**:
+- Uses Tree-sitter for AST traversal via a cursor-based walker.
+- Supports node types like `function_declaration`, `class_declaration`, `variable_declarator`, etc.
+- Maps to symbol kinds (e.g., "function", "class", "variable").
+- Handles nested structures (e.g., methods in classes) and exports.
+- Formats signatures (first line, truncated to 120 chars) with line numbers.
+
+**File Formatting** (`formatFileOutput`):
+- Filters out comment/empty lines around symbols.
+- Outputs file path followed by bulleted important lines.
+
+**Language Support** (`loadLanguage`):
+- JavaScript (`.js`): `tree-sitter-javascript`.
+- Python (`.py`): `tree-sitter-python`.
+- C/C++ (`.c`, `.h`, `.cpp`, etc.): `tree-sitter-cpp`.
+
+Interactions: Resources provide file sets; the service processes them into memories for the agent.
+
+### RepoMapResource
+
+Extends `FileMatchResource` from `@tokenring-ai/filesystem`.
+
+- **Key Properties**:
+  - `name`: `"RepoMapResource"`.
+  - `description`: `"Provides RepoMap functionality"`.
+- **Role**: Matches and adds relevant files to a set for processing by `RepoMapService`. Can be registered and enabled to control which files are analyzed (e.g., glob patterns for source directories).
+
+### Chat Commands
+
+- **/repo-map**: Command to trigger and display the repository map.
+  - `execute(remainder: string, agent: Agent)`: Invokes `getMemories` and prints output via `agent.infoLine`.
+  - `help()`: Returns command description.
+
+Exported via `chatCommands.ts` for agent integration.
+
+### Tools
+
+- **symbol**: Exported from `tools/symbol.ts` (contents not detailed in analysis, but likely utilities for symbol querying/manipulation).
+
+## Usage Examples
+
+### 1. Registering and Using the Service in an Agent
+
+```typescript
+import { Agent } from "@tokenring-ai/agent";
+import { RepoMapService, RepoMapResource } from "@tokenring-ai/repo-map";
+import { FileSystemService } from "@tokenring-ai/filesystem";
+
+// In agent initialization
+const agent = new Agent(/* config */);
+const fsService = new FileSystemService(/* fs config */);
+agent.registerService(fsService);
+
+const repoMapService = new RepoMapService();
+agent.registerService(repoMapService);
+
+// Register and enable a resource (e.g., matching all .ts files)
+const resource = new RepoMapResource();
+resource.addGlob("**/*.ts"); // Assuming FileMatchResource API
+repoMapService.registerResource(resource);
+repoMapService.enableResources(["RepoMapResource"]);
+
+// In agent loop or query
+for await (const memory of repoMapService.getMemories(agent)) {
+  console.log(memory.content); // Outputs formatted symbol map
 }
 ```
 
-Where `<repo-map>` concatenates entries of the form:
+### 2. Using the Chat Command
 
+In an interactive agent session:
 ```
-relative/file/path.ext:
-- function doThing(...) { ...
-- class MyClass ...
+/repo-map
 ```
+Output: Displays the repository map with file paths and symbol lines.
 
-Key points:
+### 3. Custom Resource for Specific Files
 
-- Supported languages for symbol extraction: JavaScript/TypeScript (via tree-sitter-javascript), Python (
-  tree-sitter-python), and C/C++ (tree-sitter-cpp).
-- Only relevant lines around symbol declarations are included; not full file contents.
-- Uses `FileSystemService` to load file contents and `RepoMapResource` to determine which files to include.
-
-Typical usage via the registry:
-
-```ts
-import {ServiceRegistry} from "@tokenring-ai/registry";
-import {RepoMapService, RepoMapResource} from "@tokenring-ai/repo-map";
-
-const registry = new ServiceRegistry();
-registry.registerService(new RepoMapService());
-registry.registerResource(
-  new RepoMapResource({baseDirectory: process.cwd(), items: [{path: "src"}]})
-);
-
-// Consume repository map memories
-const repoMapService = registry.requireFirstServiceByType(RepoMapService);
-for await (const memory of repoMapService.getMemories(registry)) {
-  console.log(memory.content);
-}
+```typescript
+const customResource = new RepoMapResource();
+customResource.addPath("/path/to/specific/file.py");
+repoMapService.registerResource(customResource);
+repoMapService.enableResources(["CustomResource"]);
 ```
 
-### Chat Command: /repo-map
+## Configuration Options
 
-The package exposes a chat command that prints the map via the chat UI:
+- **Resources**: Register via `registerResource` and enable via `enableResources`. Resources define file globs/paths (inherited from `FileMatchResource`).
+- **Supported Languages**: Hardcoded in `loadLanguage`; extend by adding cases and Tree-sitter grammars.
+- **Parsing Limits**: Symbols are top-level; signatures truncated to 120 chars. No config for depth, but traversal handles classes/methods.
+- **Environment**: Relies on agent's `FileSystemService` for file access. No env vars defined.
+- **Error Handling**: Logs errors per file via `agent.errorLine`; continues processing.
 
-- Command: `/repo-map`
-- Description: Show the repository map built from `RepoMapResource` inputs.
+## API Reference
 
-This is wired through `chatCommands.repoMap` and implemented in `commands/repoMap.ts`.
+- **RepoMapService**:
+  - `async* getMemories(agent: Agent): AsyncGenerator<MemoryItemMessage>` – Yields repo map as user content.
+  - `loadLanguage(ext: string): Parser.Language | null` – Returns Tree-sitter language by extension.
+  - `extractSymbols(tree: SyntaxNode, lang: Language): Symbol[]` – Traverses AST to collect symbols `{name, kind, signature, line, parentClass?}`.
+  - `formatFileOutput(file: string, code: string, symbols: Symbol[]): string | null` – Generates bulleted output, skipping comments.
 
-### Tool: tools.symbol
+- **RepoMapResource**:
+  - Extends `FileMatchResource`: Use `addGlob(pattern)`, `addPath(path)`, etc., to define files.
+  - `addFilesToSet(files: Set<string>, agent: Agent)` – Populates file set (inherited/used internally).
 
-Create, replace, or delete specific symbols in source code files. Supports:
+- **Commands**:
+  - `execute(remainder: string, agent: Agent): Promise<void>` – Runs `/repo-map`.
+  - `description: string` – Command help text.
 
-- symbolType: `function`, `class`, `variable`, `method`, `export`, `constructor`, `property`
-- parentClass: for nested edits (e.g., methods inside a class)
-- content: complete implementation to insert; an empty string deletes the symbol
+- **Package Exports**:
+  - `{ packageInfo: TokenRingPackage }` – Includes `chatCommands` and `tools`.
 
-Supported file types: `.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.c`, `.cpp`, `.h`, `.hpp`, `.hxx`, `.cxx`.
+## Dependencies
 
-Behavior highlights:
+- `@tokenring-ai/agent` (^0.1.0): Agent framework and types.
+- `@tokenring-ai/filesystem` (^0.1.0): File system access.
+- `@tokenring-ai/utility` (implicit via imports): Registry utilities.
+- `tree-sitter` (^0.22.4): Core parsing library.
+- `tree-sitter-javascript` (^0.23.1): JS parser.
+- `tree-sitter-python` (^0.23.6): Python parser.
+- `tree-sitter-cpp` (^0.23.4): C/C++ parser.
+- `zod` (^4.0.17): Schema validation (unused in core files, possibly for tests/tools).
 
-- Fast path for top-level JS/TS functions without needing Tree-sitter (more robust on minimal environments).
-- General path uses Tree-sitter for nested symbols and non-JS languages.
-- Filesystem writes are handled via `FileSystemService` and changes mark the workspace dirty.
+Dev dependencies: Vitest for testing.
 
-Example invocation:
+## Contributing/Notes
 
-```ts
-import {tools} from "@tokenring-ai/repo-map";
-import {ServiceRegistry} from "@tokenring-ai/registry";
+- **Testing**: Run `npm test` for unit tests (e.g., symbol extraction). Add tests for new languages or edge cases.
+- **Building**: Use TypeScript compilation; ESM modules (`type: "module"`).
+- **Limitations**: 
+  - Only supports JS, Python, C/C++; extend `loadLanguage` for more.
+  - Symbol extraction is basic (top-level, no full signatures or types); may miss complex/nested exports.
+  - Binary/non-text files skipped; .gitignore respected via FileSystemService.
+  - Performance: Parses entire files; suitable for small-to-medium repos.
+- **License**: MIT (see LICENSE).
+- Contributions: Focus on parser extensions, resource types, or integration improvements. Ensure Tree-sitter compatibility.
 
-const registry = new ServiceRegistry();
-// ...register FileSystemService and ChatService...
-
-await tools.symbol.execute(
-  {
-    path: "src/util/math.js",
-    symbolName: "sum",
-    symbolType: "function",
-    content: "function sum(a, b) { return a + b; }",
-  },
-  registry
-);
-```
-
-## Limitations & Notes
-
-- The repository map is intentionally lossy and does not include full file contents.
-- Symbol extraction relies on Tree-sitter grammars; only the listed languages are supported.
-- The symbol tool manipulates code text; it does not refactor references, imports, or call sites.
-- Ensure required services (e.g., `FileSystemService`, `ChatService`) are registered in the registry for commands/tools
-  to function.
-
-## Testing
-
-This package includes Vitest tests (e.g., for `tools/symbol`). From the monorepo root:
-
-```
-bun run test
-```
-
-Or from this package directory:
-
-```
-bun run -C pkg/repo-map test
-```
-
-## License
-
-MIT
+For issues or extensions, reference the TokenRing AI codebase.
